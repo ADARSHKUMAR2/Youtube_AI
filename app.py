@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 from pymongo import MongoClient
 from dotenv import load_dotenv
+import pandas as pd
 
 # Import your agent and Pydantic model
 from agent import run_youtube_agent, YouTubeResearchReport
@@ -104,9 +105,53 @@ if st.session_state.current_report:
     
     st.divider()
     
-    st.subheader("🔗 Sources")
+    st.subheader("🔗 All Sources Analyzed")
     if report.source_urls:
         for url in report.source_urls:
             st.markdown(f"📺 [{url}]({url})")
     else:
         st.write("No sources provided.")
+
+    if report.source_urls:
+        main_url = report.source_urls[0]
+        
+        # Draw the embedded YouTube video
+        st.video(main_url)
+        
+        # Display the stats in a clean 4-column layout
+        st.markdown("### 📊 Video Statistics")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric(label="Channel Subs", value=report.channel_subscribers)
+        with col2:
+            st.metric(label="👍 Likes", value=report.like_count)
+        with col3:
+            st.metric(label="💬 Comments", value=report.comment_count)
+        with col4:
+            # A clean button to open the video on YouTube directly
+            st.link_button("🔗 Open on YouTube", main_url, use_container_width=True)
+            
+        st.divider()
+    # -------------------------------------
+
+        st.markdown("### 📈 Engagement Graph")
+        
+        # 1. Helper function to safely convert string API data to integers
+        def safe_int(value):
+            try:
+                # Remove any commas just in case, and convert to integer
+                return int(str(value).replace(',', ''))
+            except (ValueError, TypeError):
+                return 0 # Default to 0 if the data is missing or says "N/A"
+                
+        # 2. Create the Pandas DataFrame
+        chart_data = pd.DataFrame({
+            "Count": [safe_int(report.like_count), safe_int(report.comment_count)]
+        }, index=["👍 Likes", "💬 Comments"])
+        
+        # 3. Draw the Streamlit Bar Chart
+        st.bar_chart(chart_data, color="#FF0000") # YouTube Red!
+        
+        st.divider()
+    

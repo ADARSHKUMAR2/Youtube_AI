@@ -51,7 +51,32 @@ def get_video_transcript(video_id: str) -> str:
     except Exception as e:
         return f"Could not retrieve transcript: {str(e)}"
 
+@mcp.tool()
+def get_video_details(video_id: str) -> str:
+    """Fetch statistics for a video including likes, comments, and channel subscribers."""
+    try:
+        # 1. Get video stats and the channel ID
+        video_req = youtube.videos().list(part='statistics,snippet', id=video_id)
+        video_res = video_req.execute()
+        
+        if not video_res.get('items'):
+            return "Video details not found."
+            
+        v_item = video_res['items'][0]
+        likes = v_item['statistics'].get('likeCount', 'N/A')
+        comments = v_item['statistics'].get('commentCount', 'N/A')
+        channel_id = v_item['snippet']['channelId']
+        
+        # 2. Get channel stats to find subscriber count
+        channel_req = youtube.channels().list(part='statistics', id=channel_id)
+        channel_res = channel_req.execute()
+        subs = channel_res['items'][0]['statistics'].get('subscriberCount', 'N/A')
+        
+        return f"Likes: {likes}, Comments: {comments}, Subscribers: {subs}"
+    except Exception as e:
+        return f"Failed to retrieve video details: {str(e)}"
+
+
 if __name__ == "__main__":
     # Run the MCP server over standard input/output (stdio)
     mcp.run()
-

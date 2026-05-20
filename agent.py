@@ -9,12 +9,17 @@ import json
 from config import get_github_model
 from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Optional
 
 class YouTubeResearchReport(BaseModel):
     topic: str = Field(description="The main topic of the research")
     summary: str = Field(description="Detailed summary of the video transcripts found")
     key_takeaways: list[str] = Field(description="A bulleted list of 3-5 crucial facts")
     source_urls: list[str] = Field(description="List of YouTube URLs used in the research")
+
+    channel_subscribers: Optional[str] = Field(default="N/A", description="Formatted subscriber count (e.g., '1.2M' or raw number)")
+    like_count: Optional[str] = Field(default="N/A", description="Formatted like count")
+    comment_count: Optional[str] = Field(default="N/A", description="Formatted comment count")
 
 def format_for_openai(mcp_tools) -> list:
     """
@@ -86,9 +91,10 @@ async def run_youtube_agent(user_query: str):
                         "You MUST follow this exact workflow:\n"
                         "1. Use 'search_youtube' to find a highly relevant and recent video.\n"
                         "2. Extract the video_id from the search results.\n"
-                        "3. Use 'get_video_transcript' with that exact video_id to read the video's content.\n"
-                        "4. Analyze the transcript to answer the user's question accurately based on the current date.\n"
-                        "CRITICAL: Do NOT stop researching or output your final answer until you have successfully fetched and read a transcript."
+                        "3. Use 'get_video_details' with that video_id to fetch the likes, comments, and subscriber count.\n" 
+                        "4. Use 'get_video_transcript' to read the video's content.\n"
+                        "5. Analyze the transcript to answer the user's question accurately.\n"
+                        "CRITICAL: Do NOT stop researching or output your final answer until you have successfully fetched the transcript and video details."
                     )
                 },
                 {"role": "user", "content": user_query}
