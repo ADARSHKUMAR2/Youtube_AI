@@ -96,6 +96,19 @@ if st.session_state.current_report:
     
     st.header(report.topic)
     
+    st.subheader("🗣️ Audience Sentiment")
+    
+    # We use some basic logic to color-code the sentiment box based on the LLM's text!
+    sentiment_text = report.audience_sentiment.lower()
+    if "positive" in sentiment_text or "praise" in sentiment_text:
+        st.success(f"**{report.audience_sentiment}**")
+    elif "negative" in sentiment_text or "skeptical" in sentiment_text or "scam" in sentiment_text:
+        st.warning(f"**{report.audience_sentiment}**")
+    else:
+        st.info(f"**{report.audience_sentiment}**")
+        
+    st.divider()
+
     st.subheader("📝 Detailed Summary")
     st.info(report.summary)
     

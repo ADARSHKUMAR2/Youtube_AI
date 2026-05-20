@@ -76,6 +76,31 @@ def get_video_details(video_id: str) -> str:
     except Exception as e:
         return f"Failed to retrieve video details: {str(e)}"
 
+@mcp.tool()
+def get_video_comments(video_id: str, max_results: int = 20) -> str:
+    """Fetch the top comments for a video to analyze audience sentiment."""
+    try:
+        request = youtube.commentThreads().list(
+            part="snippet",
+            videoId=video_id,
+            maxResults=max_results,
+            order="relevance" # Gets the most upvoted/relevant comments first
+        )
+        response = request.execute()
+        
+        comments = []
+        for item in response.get("items", []):
+            text = item["snippet"]["topLevelComment"]["snippet"]["textOriginal"]
+            # Clean up newlines to save tokens
+            text = text.replace("\n", " ").strip()
+            comments.append(f"- {text}")
+            
+        if not comments:
+            return "No comments found or comments are disabled."
+            
+        return "\n".join(comments)
+    except Exception as e:
+        return f"Could not retrieve comments (they might be disabled): {str(e)}"
 
 if __name__ == "__main__":
     # Run the MCP server over standard input/output (stdio)

@@ -20,6 +20,10 @@ class YouTubeResearchReport(BaseModel):
     channel_subscribers: Optional[str] = Field(default="N/A", description="Formatted subscriber count (e.g., '1.2M' or raw number)")
     like_count: Optional[str] = Field(default="N/A", description="Formatted like count")
     comment_count: Optional[str] = Field(default="N/A", description="Formatted comment count")
+    audience_sentiment: Optional[str] = Field(
+        default="Not analyzed", 
+        description="A 1-2 sentence summary of the audience's reaction based on the comments (e.g., 'Overwhelmingly positive, users praised the clarity' or 'Skeptical, many users pointed out a flaw')."
+    )
 
 def format_for_openai(mcp_tools) -> list:
     """
@@ -94,6 +98,7 @@ async def run_youtube_agent(user_query: str):
                         "3. Use 'get_video_details' with that video_id to fetch the likes, comments, and subscriber count.\n" 
                         "4. Use 'get_video_transcript' to read the video's content.\n"
                         "5. Analyze the transcript to answer the user's question accurately.\n"
+                        "6. Use 'get_video_comments' to analyze the transcript and comments to answer the user's question accurately.\n"
                         "CRITICAL: Do NOT stop researching or output your final answer until you have successfully fetched the transcript and video details."
                     )
                 },
