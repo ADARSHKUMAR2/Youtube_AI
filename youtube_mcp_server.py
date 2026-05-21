@@ -102,6 +102,45 @@ def get_video_comments(video_id: str, max_results: int = 20) -> str:
     except Exception as e:
         return f"Could not retrieve comments (they might be disabled): {str(e)}"
 
+@mcp.tool()
+def get_channel_latest_videos(channel_query: str, max_results: int = 3) -> str:
+    """Search for a YouTube channel by name or handle and fetch their most recent video IDs."""
+    try:
+        # 1. Find the channel ID based on the query
+        channel_req = youtube.search().list(
+            q=channel_query,
+            type='channel',
+            part='snippet',
+            maxResults=1
+        )
+        channel_res = channel_req.execute()
+        
+        if not channel_res.get('items'):
+            return f"Could not find a channel matching '{channel_query}'."
+            
+        channel_id = channel_res['items'][0]['snippet']['channelId']
+        channel_title = channel_res['items'][0]['snippet']['title']
+        
+        # 2. Get the latest videos from that specific channel
+        vid_req = youtube.search().list(
+            channelId=channel_id,
+            type='video',
+            part='snippet',
+            order='date',
+            maxResults=max_results
+        )
+        vid_res = vid_req.execute()
+        
+        results = [f"Found Channel: {channel_title} (ID: {channel_id})"]
+        for item in vid_res.get('items', []):
+            video_id = item['id']['videoId']
+            title = item['snippet']['title']
+            results.append(f"Title: {title} | Video ID: {video_id}")
+            
+        return "\n".join(results)
+    except Exception as e:
+        return f"Failed to retrieve channel videos: {str(e)}"
+        
 if __name__ == "__main__":
     # Run the MCP server over standard input/output (stdio)
     mcp.run()
