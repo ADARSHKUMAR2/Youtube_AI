@@ -1,41 +1,62 @@
 # YouTube AI Research Agent
 
-An AI agent that researches topics on YouTube: it searches for recent videos, reads transcripts, pulls engagement stats, analyzes top comments for audience sentiment, and returns a structured research report. A Streamlit UI embeds the primary video, charts likes vs. comments, saves reports to MongoDB, and lets you revisit past searches.
+AI agents that research YouTube in two modes: **single-video research** (search, transcripts, stats, comment sentiment) and **channel deep dives** (latest videos, multi-transcript narrative analysis). A Streamlit UI runs both agents, saves typed reports to MongoDB, and lets you revisit past searches.
 
 ## How it works
 
 ```mermaid
-flowchart LR
-  UI[Streamlit app] --> Agent[agent.py]
-  Agent --> LLM[GitHub Models / Azure inference]
-  Agent --> MCP[youtube_mcp_server.py]
+flowchart TB
+  UI[Streamlit app] --> V[run_youtube_agent]
+  UI --> C[run_channel_agent]
+  V --> Loop[execute_agent_loop]
+  C --> Loop
+  Loop --> LLM[GitHub Models / gpt-4.1-nano]
+  Loop --> MCP[youtube_mcp_server.py]
   MCP --> YT[YouTube Data API]
   MCP --> TX[YouTube Transcript API]
   UI --> DB[(MongoDB)]
 ```
 
-1. **MCP server** (`youtube_mcp_server.py`) exposes tools to search YouTube, fetch transcripts, read video/channel statistics, and load top comments.
-2. **Agent** (`agent.py`) connects to the MCP server over stdio, runs a tool-calling loop with GitHub Models (`gpt-4o`), then formats findings into a Pydantic `YouTubeResearchReport`.
-3. **Streamlit app** (`app.py`) runs the agent from the browser, renders sentiment, metrics, an embedded player, and an engagement chart, and persists history in MongoDB.
+1. **MCP server** (`youtube_mcp_server.py`) exposes YouTube search, transcript, stats, comments, and channel video tools over stdio.
+2. **Agent** (`agent.py`) uses a shared `execute_agent_loop` for tool calling and structured Pydantic output, with separate prompts and schemas per mode.
+3. **Streamlit app** (`app.py`) provides two tabs, persists `video_report` and `channel_report` documents, and auto-loads the most recent search on startup.
 
-### Agent workflow
+## Modes
 
-The system prompt instructs the model to:
+### Single video research
+
+`run_youtube_agent(query)` → `YouTubeResearchReport`
+
+Workflow:
 
 1. `search_youtube` — find a relevant, recent video
-2. `get_video_details` — likes, comment count, channel subscriber count
+2. `get_video_details` — likes, comments, channel subscriber count
 3. `get_video_transcript` — read the video content
-4. `get_video_comments` — sample top comments for sentiment
-5. Compile a structured report (only after transcript and details are fetched)
+4. `get_video_comments` — top comments for sentiment
+5. Compile report (only after transcript and details are fetched)
+
+UI: embedded player, engagement metrics, likes vs. comments chart, sentiment, summary, takeaways, sources.
+
+### Channel deep dive
+
+`run_channel_agent(channel_query)` → `ChannelDeepDiveReport`
+
+Workflow:
+
+1. `get_channel_latest_videos` — resolve channel by name/handle, fetch 3 latest video IDs
+2. `get_video_transcript` — read each of the 3 transcripts
+3. Synthesize overarching narrative, recent topics, and target audience
+
+UI: channel name, overarching theme, recent topics, target audience.
 
 ## Prerequisites
 
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/) (recommended) or another way to install dependencies from `pyproject.toml`
-- [MongoDB](https://www.mongodb.com/) (local or Atlas) for search history in the UI
+- [MongoDB](https://www.mongodb.com/) (local or Atlas) for search history
 - API keys:
   - **GitHub Models** — [create a token](https://github.com/settings/tokens) and set `OPENAI_API_KEY` (inference at `https://models.inference.ai.azure.com`)
-  - **YouTube Data API v3** — enable the API in [Google Cloud Console](https://console.cloud.google.com/) and create an API key (search, videos, channels, and comment threads endpoints)
+  - **YouTube Data API v3** — enable in [Google Cloud Console](https://console.cloud.google.com/) (search, videos, channels, comment threads)
 
 ## Setup
 
@@ -64,16 +85,14 @@ Optional: set LangSmith env vars if you use tracing via `wrap_openai` in `config
 uv run streamlit run app.py
 ```
 
-Enter a research question and click **Generate Research Report**. The UI shows:
+Two tabs:
 
-- Audience sentiment (color-coded)
-- Summary and key takeaways
-- Source URLs
-- Embedded YouTube player for the primary source
-- Metrics: channel subscribers, likes, comments
-- Bar chart of likes vs. comments
+| Tab | Action | Output |
+|-----|--------|--------|
+| **Single Video Research** | Enter a topic → **Generate Video Report** | `YouTubeResearchReport` |
+| **Channel Deep Dive** | Enter channel name or handle (e.g. `@mkbhd`) → **Analyze Channel** | `ChannelDeepDiveReport` |
 
-Recent searches appear in the sidebar; click one to reload its report.
+The sidebar lists the 15 most recent searches (🎥 video, 📺 channel). Click any entry to reload that report.
 
 ### CLI
 
@@ -81,11 +100,17 @@ Recent searches appear in the sidebar; click one to reload its report.
 uv run python agent.py
 ```
 
-Edit the query in the `if __name__ == "__main__"` block in `agent.py`, or import `run_youtube_agent` from your own script.
+Imports:
+
+```python
+from agent import run_youtube_agent, run_channel_agent
+```
+
+Edit the example in the `if __name__ == "__main__"` block, or call either function from your own script.
 
 ### MCP server alone
 
-The agent starts the MCP server automatically. To run it standalone for debugging:
+The agent spawns the MCP server via `sys.executable`. To debug it standalone:
 
 ```bash
 uv run python youtube_mcp_server.py
@@ -96,38 +121,49 @@ uv run python youtube_mcp_server.py
 | Tool | Description |
 |------|-------------|
 | `search_youtube` | Search videos by query (ordered by date) |
-| `get_video_transcript` | Fetch captions for a `video_id` (truncated to 5000 chars) |
-| `get_video_details` | Likes, comment count, and channel subscriber count |
+| `get_video_transcript` | Captions for a `video_id` (truncated to 5000 chars) |
+| `get_video_details` | Likes, comment count, channel subscriber count |
 | `get_video_comments` | Top relevant comments for sentiment analysis |
+| `get_channel_latest_videos` | Find channel by name/handle, return 3 latest video IDs |
 
 ## Project layout
 
 | File | Role |
 |------|------|
-| `app.py` | Streamlit UI, MongoDB persistence, video embed, engagement chart |
-| `agent.py` | MCP client, tool-calling loop, structured report output |
+| `app.py` | Streamlit UI (two tabs), MongoDB persistence, report rendering |
+| `agent.py` | `execute_agent_loop`, video and channel agents, Pydantic schemas |
 | `youtube_mcp_server.py` | FastMCP server and YouTube API tools |
-| `config.py` | GitHub Models client and LangSmith wrapping |
+| `config.py` | GitHub Models `AsyncOpenAI` client (LangSmith-wrapped) |
 | `pyproject.toml` | Dependencies and Python version |
 
-## Output schema
+## Output schemas
 
-Reports use the `YouTubeResearchReport` Pydantic model:
+### `YouTubeResearchReport` (video mode)
 
 | Field | Description |
 |-------|-------------|
 | `topic` | Main subject |
 | `summary` | Narrative from transcript and comment analysis |
 | `key_takeaways` | Bullet list of important points |
-| `source_urls` | YouTube URLs used in the research |
-| `channel_subscribers` | Formatted subscriber count (e.g. `1.2M`) |
-| `like_count` | Formatted like count |
-| `comment_count` | Formatted comment count |
-| `audience_sentiment` | Short summary of comment/reaction tone |
+| `source_urls` | YouTube URLs used |
+| `channel_subscribers` | Subscriber count |
+| `like_count` | Like count |
+| `comment_count` | Comment count |
+| `audience_sentiment` | Short summary of comment tone |
+
+### `ChannelDeepDiveReport` (channel mode)
+
+| Field | Description |
+|-------|-------------|
+| `channel_name` | Official channel name |
+| `overarching_theme` | Summary of current focus, narrative, or bias |
+| `recent_topics` | Topics from analyzed videos |
+| `target_audience` | Who the channel appears to target |
 
 ## Notes
 
-- Transcripts are truncated to 5000 characters in the MCP tool to limit token usage.
-- Comment fetching may fail if comments are disabled on a video; the agent should still proceed with transcript-based analysis.
-- Default LLM in the agent loop is `gpt-4o` via GitHub Models; `config.py` also defines `gpt-4.1-nano` for the agents SDK wrapper.
-- MongoDB database: `youtube_agent_db`, collection: `searches`.
+- Default model: `gpt-4.1-nano` via GitHub Models (`agent.py`).
+- MCP server is launched with `sys.executable` so it uses the same Python environment as the agent.
+- Transcripts are truncated to 5000 characters to limit token usage.
+- Comment fetching may fail if comments are disabled; video analysis can still proceed from transcripts.
+- MongoDB: database `youtube_agent_db`, collection `searches`. Documents include `type` (`video_report` | `channel_report`), `user_query`, `report_data`, and `timestamp`.
