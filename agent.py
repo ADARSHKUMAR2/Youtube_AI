@@ -40,6 +40,7 @@ current_time = datetime.now().strftime("%A, %B %d, %Y")
 server_params = StdioServerParameters(
     command=sys.executable,
     args=["youtube_mcp_server.py"],
+    env=dict(os.environ)
 )
 
 async def execute_agent_loop(

@@ -5,6 +5,7 @@ import pandas as pd
 from datetime import datetime
 from pymongo import MongoClient
 from dotenv import load_dotenv
+import requests
 
 # Import your agent functions and Pydantic models
 from agent import run_youtube_agent, run_channel_agent, YouTubeResearchReport, ChannelDeepDiveReport
@@ -85,18 +86,28 @@ with tab1:
         else:
             with st.spinner("🤖 Agent is researching the video..."):
                 try:
-                    report = asyncio.run(run_youtube_agent(user_query))
-                    st.session_state.current_report = report
-                    
-                    # Save to DB with explicit type
-                    searches_collection.insert_one({
-                        "user_query": user_query,
-                        "type": "video_report",
-                        "report_data": report.model_dump(), 
-                        "timestamp": datetime.now()
-                    })
-                    st.success("✨ Research Complete!")
-                    st.rerun() # Refresh page to show data below
+                    # Make HTTP request to FastAPI
+                    api_url = "http://backend:8000/api/research/video"
+                    response = requests.post(api_url, json={"query": user_query})
+
+                    # report = asyncio.run(run_youtube_agent(user_query))
+                    if response.status_code == 200:
+                        report_data = response.json()
+                        report = YouTubeResearchReport(**report_data)
+                        # Convert the JSON response back into your Pydantic model
+                        st.session_state.current_report = report
+                        
+                        # Save to DB with explicit type
+                        searches_collection.insert_one({
+                            "user_query": user_query,
+                            "type": "video_report",
+                            "report_data": report.model_dump(), 
+                            "timestamp": datetime.now()
+                        })
+                        st.success("✨ Research Complete!")
+                        st.rerun() # Refresh page to show data below
+                    else:
+                        st.error(f"❌ API Error: {response.text}")
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
 
@@ -113,18 +124,27 @@ with tab2:
         else:
             with st.spinner("🤖 Agent is analyzing the channel's recent videos..."):
                 try:
-                    report = asyncio.run(run_channel_agent(channel_query))
-                    st.session_state.current_report = report
+                    # Make HTTP request to FastAPI
+                    api_url = "http://backend:8000/api/research/channel"
+                    response = requests.post(api_url, json={"query": channel_query})
                     
-                    # Save to DB with explicit type
-                    searches_collection.insert_one({
-                        "user_query": f"Channel Analysis: {channel_query}",
-                        "type": "channel_report",
-                        "report_data": report.model_dump(), 
-                        "timestamp": datetime.now()
-                    })
-                    st.success("✨ Channel Analysis Complete!")
-                    st.rerun() # Refresh page to show data below
+                    if response.status_code == 200:
+                        report_data = response.json()
+                        report = ChannelDeepDiveReport(**report_data)
+                        
+                        st.session_state.current_report = report
+                        
+                        # Save to DB with explicit type
+                        searches_collection.insert_one({
+                            "user_query": f"Channel Analysis: {channel_query}",
+                            "type": "channel_report",
+                            "report_data": report.model_dump(), 
+                            "timestamp": datetime.now()
+                        })
+                        st.success("✨ Channel Analysis Complete!")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ API Error: {response.text}")
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
 

@@ -5,13 +5,15 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "agents>=1.4.0",
+    "fastapi>=0.136.1",
     "google-api-python-client>=2.196.0",
     "langsmith>=0.8.5",
     "mcp>=1.27.1",
     "openai>=2.37.0",
     "openai-agents>=0.17.3",
     "pymongo>=4.17.0",
+    "requests>=2.34.2",
     "streamlit>=1.57.0",
+    "uvicorn>=0.47.0",
     "youtube-transcript-api>=1.2.4",
 ]
