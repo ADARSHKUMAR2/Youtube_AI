@@ -87,7 +87,7 @@ with tab1:
             with st.spinner("🤖 Agent is researching the video..."):
                 try:
                     # Make HTTP request to FastAPI
-                    api_url = "http://backend:8000/api/research/video"
+                    api_url = "https://youtube-ai-eqvs.onrender.com/api/research/video"
                     response = requests.post(api_url, json={"query": user_query})
 
                     # report = asyncio.run(run_youtube_agent(user_query))
@@ -125,7 +125,7 @@ with tab2:
             with st.spinner("🤖 Agent is analyzing the channel's recent videos..."):
                 try:
                     # Make HTTP request to FastAPI
-                    api_url = "http://backend:8000/api/research/channel"
+                    api_url = "https://youtube-ai-eqvs.onrender.com/api/research/channel"
                     response = requests.post(api_url, json={"query": channel_query})
                     
                     if response.status_code == 200:
