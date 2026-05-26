@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from agentHandler import run_youtube_agent, run_channel_agent, YouTubeResearchReport, ChannelDeepDiveReport
+from agentHandler import run_youtube_agent, run_channel_agent, run_clickbait_agent, YouTubeResearchReport, ChannelDeepDiveReport, ClickbaitExposureReport
 import traceback
 # 1. Initialize the FastAPI app
 app = FastAPI(
@@ -33,5 +33,16 @@ async def research_channel(request: AgentRequest):
         report = await run_channel_agent(request.query)
         return report
     except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/research/clickbait", response_model=ClickbaitExposureReport)
+async def research_clickbait(request: AgentRequest):
+    try:
+        print(f"API received clickbait request: {request.query}")
+        report = await run_clickbait_agent(request.query)
+        return report
+    except Exception as e:
+        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

@@ -16,36 +16,14 @@ import json
 import asyncio
 from dotenv import load_dotenv
 from datetime import datetime as dt 
-from pydantic import BaseModel, Field
-from typing import Optional
 from duckduckgo_search import DDGS
-
 from openai import AsyncOpenAI
 from agents import Agent, Runner
 from agents.mcp import MCPServerStdio
 from backend.config import Config
+from schemas.schema import YouTubeResearchReport, ChannelDeepDiveReport, ClickbaitExposureReport
 
 load_dotenv(override=True)
-
-# --- 1. Pydantic Schemas ---
-class YouTubeResearchReport(BaseModel):
-    topic: str = Field(description="The main topic of the research")
-    summary: str = Field(description="Detailed summary of the video transcripts found")
-    key_takeaways: list[str] = Field(description="A bulleted list of 3-5 crucial facts")
-    source_urls: list[str] = Field(description="List of YouTube URLs used in the research")
-    channel_subscribers: Optional[str] = Field(default="N/A", description="Formatted subscriber count (e.g., '1.2M' or raw number)")
-    like_count: Optional[str] = Field(default="N/A", description="Formatted like count")
-    comment_count: Optional[str] = Field(default="N/A", description="Formatted comment count")
-    audience_sentiment: Optional[str] = Field(
-        default="Not analyzed", 
-        description="A 1-2 sentence summary of the audience's reaction based on the comments."
-    )
-
-class ChannelDeepDiveReport(BaseModel):
-    channel_name: str = Field(description="The official name of the channel")
-    overarching_theme: str = Field(description="A comprehensive summary of the channel's current focus, narrative, or bias based on their recent videos")
-    recent_topics: list[str] = Field(description="A bulleted list of the specific topics covered in the analyzed videos")
-    target_audience: str = Field(description="Who this channel appears to be creating content for")
 
 # --- 2. Configuration ---
 current_time = dt.now().strftime("%A, %B %d, %Y")
@@ -110,7 +88,6 @@ async def run_youtube_agent(user_query: str):
         
         return final_response.choices[0].message.parsed
 
-
 async def run_channel_agent(channel_query: str):
     async with MCPServerStdio(
         name="YouTube Server",
@@ -147,6 +124,47 @@ async def run_channel_agent(channel_query: str):
                 {"role": "user", "content": result.final_output}
             ],
             response_format=ChannelDeepDiveReport
+        )
+        
+        return final_response.choices[0].message.parsed
+
+async def run_clickbait_agent(video_query: str):
+    async with MCPServerStdio(
+        name="YouTube Server",
+        params={
+            "command": sys.executable,
+            "args": ["backend/youtube_mcp_server.py"], # Change to just "youtube_mcp_server.py" if it isn't in a backend folder
+            "env": dict(os.environ)
+        }
+    ) as mcp_server:
+        
+        clickbait_agent = Agent(
+            name="Clickbait Detector",
+            instructions=(
+                f"You are a ruthless Consumer Protection Agent. Today's date is {current_time}.\n"
+                "Your job is to expose clickbait, fluff, and hidden sponsorships on YouTube.\n"
+                "1. Use 'search_youtube' to find the video based on the user's prompt.\n"
+                "2. Use 'get_video_details' to read the Title and Description (look for sponsor links!).\n"
+                "3. Use 'get_video_transcript' to read the actual content.\n"
+                "4. Compare the Title's promise against the Transcript's reality. Be brutal. If they promise a secret but just sell a course, call it out.\n"
+                "5. Identify any in-video sponsor reads or affiliate links."
+            ),
+            model=Config.custom_model,
+            mcp_servers=[mcp_server],
+            tools=[search_web]
+        )
+        
+        print(f"🕵️ Starting Clickbait Analysis for: {video_query}...")
+        result = await Runner.run(clickbait_agent, input=video_query)
+        
+        print("✨ Formatting final structured report...")
+        final_response = await Config.custom_client.beta.chat.completions.parse(
+            model=Config.MODEL_STRING,
+            messages=[
+                {"role": "system", "content": "Format the provided research strictly into the requested JSON schema."},
+                {"role": "user", "content": result.final_output}
+            ],
+            response_format=ClickbaitExposureReport
         )
         
         return final_response.choices[0].message.parsed

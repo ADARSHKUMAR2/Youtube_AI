@@ -1,12 +1,13 @@
+import sys
+import os
 import streamlit as st
 import asyncio
-import os
 import pandas as pd
 from datetime import datetime
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import requests
-from backend.agentHandler import YouTubeResearchReport, ChannelDeepDiveReport
+from schemas.schema import YouTubeResearchReport, ChannelDeepDiveReport, ClickbaitExposureReport
 
 load_dotenv(override=True)
 
@@ -67,8 +68,7 @@ st.title("📺 YouTube AI Research Agent")
 st.markdown("Powered by **GitHub Models** & **MongoDB**.")
 st.divider()
 
-# Create two tabs for the two different modes
-tab1, tab2 = st.tabs(["🎥 Single Video Research", "📺 Channel Deep Dive"])
+tab1, tab2, tab3 = st.tabs(["🎥 Single Video", "📺 Channel Deep Dive", "🚨 Clickbait Exposé"])
 
 with tab1:
     user_query = st.text_area(
@@ -142,6 +142,32 @@ with tab2:
                             "timestamp": datetime.now()
                         })
                         st.success("✨ Channel Analysis Complete!")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ API Error: {response.text}")
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+
+with tab3:
+    clickbait_query = st.text_area(
+        "Enter a video topic or URL to expose:", 
+        placeholder="e.g., 'Find the latest video on how to make $10k a month passive income and expose it'",
+        height=100,
+        key="clickbait_input"
+    )
+    
+    if st.button("🚨 Expose Video", type="primary", key="clickbait_btn"):
+        if clickbait_query.strip():
+            with st.spinner("🕵️ Agent is analyzing the title vs. transcript..."):
+                try:
+                    # Dynamically route between Docker and Mac
+                    api_url = os.getenv("API_URL_CLICKBAIT", "http://backend:8000/api/research/clickbait")
+                    response = requests.post(api_url, json={"query": clickbait_query})
+                    
+                    if response.status_code == 200:
+                        report_data = response.json()
+                        st.session_state.current_report = {"type": "clickbait", "data": report_data}
+                        st.success("Analysis Complete!")
                         st.rerun()
                     else:
                         st.error(f"❌ API Error: {response.text}")
@@ -241,3 +267,46 @@ if st.session_state.current_report:
         with col2:
             st.subheader("👥 Target Audience")
             st.write(report.target_audience)
+
+    # ---------------------------------------------------------
+    # RENDERING FOR CLICKBAIT REPORT
+    # ---------------------------------------------------------
+    elif isinstance(report, dict) and report.get("type") == "clickbait":
+
+        data = ClickbaitExposureReport(**report["data"])
+        
+        st.header("🚨 Clickbait & Shill Report")
+        st.subheader(f"Video: {data.video_title}")
+        
+        # --- Clickbait Score Visualizer ---
+        score = data.clickbait_score
+        st.markdown(f"### Clickbait Score: {score}/100")
+        
+        if score > 75:
+            st.error(data.final_verdict)
+            st.progress(score / 100)
+        elif score > 40:
+            st.warning(data.final_verdict)
+            st.progress(score / 100)
+        else:
+            st.success(data.final_verdict)
+            st.progress(score / 100)
+            
+        st.divider()
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### 🎭 The Promise (Title/Thumbnail)")
+            st.info(data.the_promise)
+        with col2:
+            st.markdown("### 📦 The Reality (Transcript)")
+            st.info(data.the_reality)
+            
+        st.divider()
+        
+        st.markdown("### 💸 Sponsors & Shills Detected")
+        if data.sponsors_found and len(data.sponsors_found) > 0 and data.sponsors_found[0] != "None":
+            for sponsor in data.sponsors_found:
+                st.markdown(f"- 🏷️ {sponsor}")
+        else:
+            st.write("No sponsors or hidden ads detected. 🛡️")
