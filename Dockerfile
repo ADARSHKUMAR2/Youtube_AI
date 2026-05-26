@@ -8,10 +8,16 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
 # Copy all your files into the container
-COPY . /app
+COPY . .
 
 # Use uv to install all dependencies from your pyproject.toml
 RUN uv sync --frozen
 
 # Tell the container to use the virtual environment created by uv
 ENV PATH="/app/.venv/bin:$PATH"
+
+# Expose FastAPI port
+EXPOSE 8000
+
+# Auto reload enabled
+CMD ["uv", "run", "uvicorn", "backend.api:app", "--host", "0.0.0.0", "--port", "8000"]

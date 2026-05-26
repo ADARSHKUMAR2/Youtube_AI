@@ -4,19 +4,28 @@ services:
   # 1. The FastAPI Backend
   backend:
     build: .
-    command: uvicorn api:app --host 0.0.0.0 --port 8000
+    command: uvicorn api:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
+    volumes:
+      - .:/app          # 1. Syncs all your code live from Mac to Docker
+      - /app/.venv      # 2. Anonymous volume: Protects Docker's Linux environment
     env_file:
       - .env
 
   # 2. The Streamlit Frontend
   frontend:
     build: .
-    command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+    command: uv run streamlit run frontend/app.py --server.runOnSave true
     ports:
       - "8501:8501"
+    volumes:
+      - .:/app          
+      - /app/.venv
     env_file:
       - .env
     depends_on:
-      - backend # Ensures the API boots up before Streamlit
+      - backend
+    environment:
+      - PYTHONPATH=/app   
+      - API_URL=http://backend:8000/api/research/video

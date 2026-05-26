@@ -6,9 +6,7 @@ from datetime import datetime
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import requests
-
-# Import your agent functions and Pydantic models
-from agent import run_youtube_agent, run_channel_agent, YouTubeResearchReport, ChannelDeepDiveReport
+from backend.agent import run_youtube_agent, run_channel_agent, YouTubeResearchReport, ChannelDeepDiveReport
 
 load_dotenv(override=True)
 
@@ -87,7 +85,8 @@ with tab1:
             with st.spinner("🤖 Agent is researching the video..."):
                 try:
                     # Make HTTP request to FastAPI
-                    api_url = "https://youtube-ai-eqvs.onrender.com/api/research/video"
+                    # api_url = "https://youtube-ai-eqvs.onrender.com/api/research/video"
+                    api_url = os.getenv("API_URL", "http://127.0.0.1:8000/api/research/video")
                     response = requests.post(api_url, json={"query": user_query})
 
                     # report = asyncio.run(run_youtube_agent(user_query))
@@ -125,7 +124,8 @@ with tab2:
             with st.spinner("🤖 Agent is analyzing the channel's recent videos..."):
                 try:
                     # Make HTTP request to FastAPI
-                    api_url = "https://youtube-ai-eqvs.onrender.com/api/research/channel"
+                    # api_url = "https://youtube-ai-eqvs.onrender.com/api/research/channel"
+                    api_url = os.getenv("API_URL_CHANNEL", "http://127.0.0.1:8000/api/research/channel")
                     response = requests.post(api_url, json={"query": channel_query})
                     
                     if response.status_code == 200:
