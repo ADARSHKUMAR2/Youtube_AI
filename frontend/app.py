@@ -6,7 +6,7 @@ from datetime import datetime
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import requests
-from backend.agent import run_youtube_agent, run_channel_agent, YouTubeResearchReport, ChannelDeepDiveReport
+from backend.agentHandler import YouTubeResearchReport, ChannelDeepDiveReport
 
 load_dotenv(override=True)
 
