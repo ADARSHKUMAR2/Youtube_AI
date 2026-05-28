@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from agentHandler import run_youtube_agent, run_channel_agent, run_clickbait_agent, YouTubeResearchReport, ChannelDeepDiveReport, ClickbaitExposureReport
+from backend.agentHandler import run_youtube_agent, run_channel_agent, run_clickbait_agent
+from schemas.schema import YouTubeResearchReport, ChannelDeepDiveReport, ClickbaitExposureReport
 import traceback
 # 1. Initialize the FastAPI app
 app = FastAPI(
